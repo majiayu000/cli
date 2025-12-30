@@ -91,6 +91,37 @@ func TestNewCmdEdit(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "set squash merge commit title",
+			args: "--squash-merge-commit-title PR_TITLE",
+			wantOpts: EditOptions{
+				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
+				Edits: EditRepositoryInput{
+					SquashMergeCommitTitle: sp("PR_TITLE"),
+				},
+			},
+		},
+		{
+			name: "set squash merge commit message",
+			args: "--squash-merge-commit-message COMMIT_MESSAGES",
+			wantOpts: EditOptions{
+				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
+				Edits: EditRepositoryInput{
+					SquashMergeCommitMessage: sp("COMMIT_MESSAGES"),
+				},
+			},
+		},
+		{
+			name: "set both squash merge commit title and message",
+			args: "--squash-merge-commit-title COMMIT_OR_PR_TITLE --squash-merge-commit-message PR_BODY",
+			wantOpts: EditOptions{
+				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
+				Edits: EditRepositoryInput{
+					SquashMergeCommitTitle:   sp("COMMIT_OR_PR_TITLE"),
+					SquashMergeCommitMessage: sp("PR_BODY"),
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -259,6 +290,25 @@ func Test_editRun(t *testing.T) {
 					httpmock.StringResponse(`{"data": { "repository": { "viewerCanAdminister": false } } }`))
 			},
 			wantsErr: "you do not have sufficient permissions to edit repository security and analysis features",
+		},
+		{
+			name: "set squash merge commit title and message",
+			opts: EditOptions{
+				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
+				Edits: EditRepositoryInput{
+					SquashMergeCommitTitle:   sp("PR_TITLE"),
+					SquashMergeCommitMessage: sp("COMMIT_MESSAGES"),
+				},
+			},
+			httpStubs: func(t *testing.T, r *httpmock.Registry) {
+				r.Register(
+					httpmock.REST("PATCH", "repos/OWNER/REPO"),
+					httpmock.RESTPayload(200, `{}`, func(payload map[string]interface{}) {
+						assert.Equal(t, 2, len(payload))
+						assert.Equal(t, "PR_TITLE", payload["squash_merge_commit_title"])
+						assert.Equal(t, "COMMIT_MESSAGES", payload["squash_merge_commit_message"])
+					}))
+			},
 		},
 	}
 
